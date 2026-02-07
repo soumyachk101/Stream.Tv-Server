@@ -18,10 +18,17 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
 }
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
-// Uploads directory (project root when run from server/, or cwd)
-const uploadsDir = path_1.default.join(process.cwd(), 'uploads');
-if (!fs_1.default.existsSync(uploadsDir)) {
-    fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+// Uploads directory handling (Use /tmp in Vercel/Serverless)
+const uploadsDir = process.env.VERCEL || process.env.NODE_ENV === 'production'
+    ? path_1.default.join('/tmp', 'uploads')
+    : path_1.default.join(process.cwd(), 'uploads');
+try {
+    if (!fs_1.default.existsSync(uploadsDir)) {
+        fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+    }
+}
+catch (error) {
+    console.warn('Warning: Could not create uploads directory. File uploads may fail.', error);
 }
 app.use(express_1.default.json());
 app.use((0, cors_1.default)());
@@ -40,6 +47,11 @@ app.use((err, _req, res, _next) => {
     const status = message.includes('Only video') ? 400 : 500;
     res.status(status).json({ message });
 });
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+// Vercel requires exporting the app
+exports.default = app;
+// Only listen if run directly (not imported)
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}

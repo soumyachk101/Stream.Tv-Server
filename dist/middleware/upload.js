@@ -15,9 +15,18 @@ const ALLOWED_MIMES = [
     'video/x-msvideo',
     'video/x-matroska',
 ];
-const uploadsDir = path_1.default.join(process.cwd(), 'uploads');
-if (!fs_1.default.existsSync(uploadsDir)) {
-    fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+// Use /tmp/uploads for Vercel/Production (Read-only FS fix)
+const uploadsDir = process.env.VERCEL || process.env.NODE_ENV === 'production'
+    ? path_1.default.join('/tmp', 'uploads')
+    : path_1.default.join(process.cwd(), 'uploads');
+try {
+    if (!fs_1.default.existsSync(uploadsDir)) {
+        console.log(`Creating uploads directory at: ${uploadsDir}`);
+        fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+    }
+}
+catch (error) {
+    console.warn(`Warning: Failed to create uploads directory at ${uploadsDir}`, error);
 }
 const storage = multer_1.default.diskStorage({
     destination: (_req, _file, cb) => {
