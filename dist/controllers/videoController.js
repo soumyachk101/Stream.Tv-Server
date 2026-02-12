@@ -1,7 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getVideoById = exports.getVideos = exports.uploadVideo = void 0;
-const db_mock_1 = require("../lib/db_mock");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 5000;
 function validateVideoBody(body) {
@@ -24,23 +27,27 @@ function validateVideoBody(body) {
 const uploadVideo = async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: 'No video file uploaded' });
+            res.status(400).json({ message: 'No video file uploaded' });
+            return;
         }
         const validated = validateVideoBody(req.body);
         if ('error' in validated) {
-            return res.status(400).json({ message: validated.error });
+            res.status(400).json({ message: validated.error });
+            return;
         }
         const { title, description } = validated;
         const userId = req.user.userId;
         const videoUrl = `/uploads/${req.file.filename}`;
         const thumbnailUrl = 'https://placehold.co/600x400';
-        const video = await db_mock_1.db.createVideo({
-            title,
-            description,
-            videoUrl,
-            thumbnailUrl,
-            userId,
-            duration: 0,
+        const video = await prisma_1.default.video.create({
+            data: {
+                title,
+                description,
+                videoUrl,
+                thumbnailUrl,
+                userId,
+                duration: 0,
+            },
         });
         res.status(201).json(video);
     }
@@ -53,11 +60,23 @@ exports.uploadVideo = uploadVideo;
 const getVideos = async (req, res) => {
     try {
         const search = req.query.search;
-        let videos = await db_mock_1.db.getAllVideos();
+        let videos;
         if (search && typeof search === 'string') {
             const lowerSearch = search.toLowerCase();
-            videos = videos.filter((v) => v.title.toLowerCase().includes(lowerSearch) ||
-                (v.description && v.description.toLowerCase().includes(lowerSearch)));
+            videos = await prisma_1.default.video.findMany({
+                where: {
+                    OR: [
+                        { title: { contains: lowerSearch, mode: 'insensitive' } },
+                        { description: { contains: lowerSearch, mode: 'insensitive' } },
+                    ],
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+        }
+        else {
+            videos = await prisma_1.default.video.findMany({
+                orderBy: { createdAt: 'desc' },
+            });
         }
         res.json(videos);
     }
@@ -70,11 +89,14 @@ const getVideoById = async (req, res) => {
     try {
         const id = typeof req.params.id === 'string' ? req.params.id : req.params.id?.[0];
         if (!id) {
-            return res.status(400).json({ message: 'Invalid video id' });
+            res.status(400).json({ message: 'Invalid video id' });
+            return;
         }
-        const video = await db_mock_1.db.getVideoById(id);
-        if (!video)
-            return res.status(404).json({ message: 'Video not found' });
+        const video = await prisma_1.default.video.findUnique({ where: { id } });
+        if (!video) {
+            res.status(404).json({ message: 'Video not found' });
+            return;
+        }
         res.json(video);
     }
     catch (error) {

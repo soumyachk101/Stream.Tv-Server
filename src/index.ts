@@ -31,7 +31,10 @@ try {
 }
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+  credentials: true,
+}));
 app.use(helmet());
 app.use(morgan('dev'));
 

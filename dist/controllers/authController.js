@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.login = exports.register = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const db_mock_1 = require("../lib/db_mock");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
 const MAX_USERNAME_LENGTH = 50;
@@ -60,18 +60,22 @@ const register = async (req, res) => {
     try {
         const validated = validateRegisterBody(req.body);
         if ('error' in validated) {
-            return res.status(400).json({ message: validated.error });
+            res.status(400).json({ message: validated.error });
+            return;
         }
         const { email, password, username } = validated;
-        const existingUser = await db_mock_1.db.findUserByEmail(email);
+        const existingUser = await prisma_1.default.user.findUnique({ where: { email } });
         if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
+            res.status(400).json({ message: 'User already exists' });
+            return;
         }
         const hashedPassword = await bcryptjs_1.default.hash(password, 10);
-        const user = await db_mock_1.db.createUser({
-            email,
-            password: hashedPassword,
-            username,
+        const user = await prisma_1.default.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                username,
+            },
         });
         const secret = process.env.JWT_SECRET;
         const token = jsonwebtoken_1.default.sign({ userId: user.id }, secret, { expiresIn: '7d' });
@@ -87,16 +91,19 @@ const login = async (req, res) => {
     try {
         const validated = validateLoginBody(req.body);
         if ('error' in validated) {
-            return res.status(400).json({ message: validated.error });
+            res.status(400).json({ message: validated.error });
+            return;
         }
         const { email, password } = validated;
-        const user = await db_mock_1.db.findUserByEmail(email);
+        const user = await prisma_1.default.user.findUnique({ where: { email } });
         if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            res.status(400).json({ message: 'Invalid credentials' });
+            return;
         }
         const isMatch = await bcryptjs_1.default.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            res.status(400).json({ message: 'Invalid credentials' });
+            return;
         }
         const secret = process.env.JWT_SECRET;
         const token = jsonwebtoken_1.default.sign({ userId: user.id }, secret, { expiresIn: '7d' });
