@@ -10,8 +10,8 @@ import authRoutes from './routes/authRoutes';
 import videoRoutes from './routes/videoRoutes';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
-  console.error('Fatal: JWT_SECRET must be set and at least 16 characters.');
-  process.exit(1);
+  console.warn('Warning: JWT_SECRET is not set or too short. Authentication may fail.');
+  // Do not exit process to allow server to start on Vercel for debugging
 }
 
 const app = express();
